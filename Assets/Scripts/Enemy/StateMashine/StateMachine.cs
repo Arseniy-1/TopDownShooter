@@ -2,31 +2,23 @@
 using System.Collections.Generic;
 using System;
 
-[RequireComponent(typeof(Mover))]
-[RequireComponent(typeof(Idle))]
-[RequireComponent(typeof(Attacker))]
-//rename States "MoveState"
-public class StateMachine : MonoBehaviour
+public class StateMachine
 {
     private Dictionary<Type, State> _states = new Dictionary<Type, State>();
-    private Mover _moveState;
 
     [field: SerializeField] public State CurrentState { get; private set; }
-
-    private void Awake()
+    
+    public StateMachine(Flipper flipper, Rigidbody2D rigidbody2D, Animator animator, TargetProvider targetProvider)
     {
-        _moveState = GetComponent<Mover>();
-        _states.Add(typeof(Mover), GetComponent<Mover>());
-        _states.Add(typeof(Idle), GetComponent<Idle>());
-        _states.Add(typeof(Attacker), GetComponent<Attacker>());
+        _states.Add(typeof(Mover), new Mover(flipper,rigidbody2D,animator, targetProvider));
+        _states.Add(typeof(Idle), new Idle(flipper, rigidbody2D, animator));
+        _states.Add(typeof(Attacker), new Attacker(flipper, animator, targetProvider));
+
+        CurrentState = _states[typeof(Idle)];
+        CurrentState.Enter(); 
     }
 
-    private void Start()
-    {
-        CurrentState.Enter();
-    }
-
-    private void Update()
+    public void OnUpdate()
     {
         CurrentState.OnUpdate();
     }
@@ -36,9 +28,8 @@ public class StateMachine : MonoBehaviour
         ChangeState(typeof(Idle));
     }
 
-    public void StartMove(ITarget target)
+    public void StartMove()
     {
-        _moveState.SelectTarget(target);
         ChangeState(typeof(Mover));
     }
 
@@ -49,6 +40,9 @@ public class StateMachine : MonoBehaviour
 
     private void ChangeState(Type type)
     {
+        if (CurrentState == _states[type])
+            return;
+
         CurrentState.Exit();
         CurrentState = _states[type];
         CurrentState.Enter();

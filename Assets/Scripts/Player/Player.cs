@@ -14,7 +14,7 @@ public class Player : MonoBehaviour, IDamagable, ITarget
     [SerializeField] private float _scanDelay;
 
     private Weapon _currentWeapon;
-    private ITarget _currentTarget;
+    public Vector2 Position => transform.position;
 
     private PlayerCollisionHandler _playerCollisionHandler;
     private Health _health;
@@ -22,6 +22,7 @@ public class Player : MonoBehaviour, IDamagable, ITarget
     private bool _hasTarget;
 
     public Transform Transform {get; private set;}
+
 
     private void Awake()
     {
@@ -48,18 +49,18 @@ public class Player : MonoBehaviour, IDamagable, ITarget
         _health.TakeDamage(amount);
     }
 
-    private void Update()
-    {
-        if (_currentTarget != null && _currentTarget.Transform != null)
-        {
-            _hand.SpotTarget(_currentTarget.Transform.position);
+    //private void Update()
+    //{
+    //    if (_currentTarget != null && _currentTarget.Position != null)
+    //    {
+    //        _hand.SpotTarget(_currentTarget.Position.position);
 
-            if (_currentWeapon != null)
-            {
-                _currentWeapon.Shoot();
-            }
-        }
-    }
+    //        if (_currentWeapon != null)
+    //        {
+    //            _currentWeapon.Shoot();
+    //        }
+    //    }
+    //}
 
     private void Interact(IInteractable interactable)
     {
@@ -95,8 +96,8 @@ public class Player : MonoBehaviour, IDamagable, ITarget
 
             if (targets.Count > 0)
             {
-                List<ITarget> sortedTargets = targets.OrderBy(target => (target.Transform.position - transform.position).magnitude).ToList();
-                _currentTarget = sortedTargets[0];
+                //List<ITarget> sortedTargets = targets.OrderBy(target => (target.Position.position - transform.position).magnitude).ToList();
+                //_currentTarget = sortedTargets[0];
             }
         }
     }

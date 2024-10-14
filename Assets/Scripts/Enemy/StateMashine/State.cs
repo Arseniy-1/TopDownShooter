@@ -1,20 +1,10 @@
 ﻿using UnityEngine;
 
-public abstract class State : MonoBehaviour
+public abstract class State
 {
-    private void Awake()
-    {
-        enabled = false;
-        OnAwake();
-    }
-
     public abstract void OnUpdate();
 
-    public virtual void Enter() =>
-        enabled = true;
+    public abstract void Enter();
 
-    public virtual void Exit() =>
-        enabled = false;
-
-    protected virtual void OnAwake() { }
+    public abstract void Exit();
 }

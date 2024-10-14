@@ -2,47 +2,45 @@
 
 public class Mover : State
 {
-    [SerializeField] private float _speed;
+    private float _speed =4;
     //[SerializeField] private Flipper flipper;
 
-    private Transform _currentTarget;
     private Animator _animator;
     private string _runningTrigger = "IsRunning";
     private Rigidbody2D _rigidbody2D;
+    private Flipper _flipper;
+    private TargetProvider _targetProvider;
 
-    public bool HasTarget => _currentTarget != null;
-    public float HorizontalSpeed => _rigidbody2D.velocity.x;
-
-    private void Awake()
+    public Mover(Flipper flipper, Rigidbody2D rigidbody2D, Animator animator, TargetProvider targetProvider)
     {
-        _animator = GetComponent<Animator>();
-        _rigidbody2D = GetComponent<Rigidbody2D>();
+        _flipper = flipper;
+        _rigidbody2D = rigidbody2D;
+        _animator = animator;
+        _targetProvider = targetProvider;
+    }
+
+    //public override void Initialize(Flipper flipper, Rigidbody2D rigidbody2D, Animator animator)
+    //{
+    //    _flipper = flipper;
+    //    _rigidbody2D = rigidbody2D;
+    //    _animator = animator;
+    //}
+
+    public override void Enter()
+    {
+        //_animator.
     }
 
     public override void OnUpdate()
     {
-        if (_currentTarget != null)
-        {
-            Move();
-        }
+        Vector2 direction = (_targetProvider.Target.Position - _rigidbody2D.position).normalized;
+        _rigidbody2D.velocity = direction * _speed;
+        _flipper.CorrectFlip(_rigidbody2D.velocity.x);
     }
 
     public override void Exit()
     {
-        base.Exit();
         _rigidbody2D.velocity = Vector2.zero;
-    }
-
-    public void SelectTarget(ITarget currentTarget)
-    {
-        if (currentTarget is MonoBehaviour target)
-            _currentTarget = target.transform;
-    }
-
-    private void Move()
-    {
-        Vector2 direction = (_currentTarget.transform.position - transform.position).normalized;
-        _rigidbody2D.velocity = direction * _speed;
     }
 }
 

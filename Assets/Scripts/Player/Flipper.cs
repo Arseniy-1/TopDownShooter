@@ -2,24 +2,15 @@
 
 public class Flipper : MonoBehaviour
 {
-    [SerializeField] private PlayerMover _mover;
-
     private bool _facingRight = true;
 
-    private void FixedUpdate()
+    public void CorrectFlip(float horizontalSpeed)
     {
-        CorrectFlip();
+      if (!_facingRight && horizontalSpeed > 0)
+          Flip();
+      else if (_facingRight && horizontalSpeed < 0)
+          Flip();
     }
-
-    private void CorrectFlip(float horizontalSpeed)
-    {
-        if (!_facingRight && _mover.HorizontalSpeed > 0)
-            Flip();
-        else if (_facingRight && _mover.HorizontalSpeed < 0)
-            Flip();
-    }
-
-    //убрать зависимость от mover
 
     private void Flip()
     {
