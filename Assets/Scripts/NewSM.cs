@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using static UnityEngine.RuleTile.TilingRuleOutput;
 
 //public interface ITarget
 //{
@@ -25,16 +27,19 @@ namespace Assets.Strategy.StateMachines
         [SerializeField] private Flipper _flipper;
 
         [SerializeField] private Animator _animator;
-
         private StateMachine _stateMachine;
         private TargetProvider _targetProvider;
 
+        [field: SerializeField] public float Speed { get; private set; }
+        [field: SerializeField] public float AttackRange { get; private set; }
+       
+        public bool HasWeapon => _currentWeapon != null;
         public bool HasTarget => _targetProvider.Target != null && _targetProvider.Target.Position != null;
         public Vector2 Position => transform.position;
 
         private void Awake()
         {
-            _stateMachine = new StateMachineFactory(this);
+            _stateMachine = new StateMachineFactory(this, _rigidbody2D, _flipper, _targetProvider, _currentWeapon).Create();
         }
 
         private void Update()
@@ -49,33 +54,39 @@ namespace Assets.Strategy.StateMachines
 
     public class StateMachineFactory
     {
-        private Enemy _bot;
+        private readonly Rigidbody2D _rigidbody2D;
+        private readonly Flipper _flipper;
+        private readonly TargetProvider _targetProvider;
+        private readonly Weapon _weapon;
+        private readonly Enemy _enemy;
 
-        public StateMachineFactory(Enemy bot) => _bot = bot;
+        public StateMachineFactory(Enemy enemy, Rigidbody2D rigidbody2D, Flipper flipper, TargetProvider targetProvider, Weapon weapon)
+        {
+            _enemy = enemy;
+            _rigidbody2D = rigidbody2D;
+            _flipper = flipper;
+            _targetProvider = targetProvider;
+            _weapon = weapon;
+        }
 
         public StateMachine Create()
         {
-            IdleState idleState = new IdleState(_bot);
-            MoveState moveState = new MoveState(_bot);
-            CollectState collectState = new CollectState(_bot);
-            PutState putState = new PutState(_bot);
+            IdleState idleState = new IdleState();
+            MoveState moveState = new MoveState(_rigidbody2D,_flipper,_targetProvider, _enemy.Speed);
+            Attack attackState = new Attack(_weapon);
 
-            IdleTransition idleTransition = new IdleTransition(idleState, _bot);
-            MoveTransition moveTransition = new MoveTransition(moveState, _bot);
-            CollectTransition collectTransition = new CollectTransition(collectState, _bot);
-            PutTransition putTransition = new PutTransition(putState, _bot);
+            IdleTransition idleTransition = new IdleTransition(idleState, _enemy);
+            MoveTransition moveTransition = new MoveTransition(moveState, _enemy, _targetProvider);
+            AttackTransition attackTransition = new AttackTransition(attackState, _enemy, _targetProvider);
 
             idleState.AddTransition(moveTransition);
+            idleState.AddTransition(attackTransition);
 
-            moveState.AddTransition(collectTransition);
-            moveState.AddTransition(putTransition);
+            moveState.AddTransition(attackTransition);
             moveState.AddTransition(idleTransition);
 
-            collectState.AddTransition(idleTransition);
-            collectState.AddTransition(moveTransition);
-
-            putState.AddTransition(idleTransition);
-            putState.AddTransition(moveTransition);
+            attackState.AddTransition(idleTransition);
+            attackState.AddTransition(moveTransition);
 
             return new StateMachine(idleState);
         }
@@ -159,12 +170,12 @@ namespace Assets.Strategy.StateMachines
     public abstract class Transition
     {
         private readonly State _nextState;
-        protected readonly Enemy Bot;
+        protected  Enemy Enemy;
 
         public Transition(State nextState, Enemy bot)
         {
             _nextState = nextState;
-            Bot = bot;
+            Enemy = bot;
         }
 
         public bool IsOpen { get; internal set; }
@@ -175,7 +186,7 @@ namespace Assets.Strategy.StateMachines
         public void Close() =>
             IsOpen = false;
 
-        internal abstract void Update(); /*логика проверки можно ли переходить*/
+        internal abstract void Update();
 
         protected void Open() =>
             IsOpen = true;
@@ -183,43 +194,48 @@ namespace Assets.Strategy.StateMachines
 
     public class IdleState : State
     {
-        public IdleState(Enemy bot) : base(bot)
+        public IdleState()
         {
         }
     }
 
     public class MoveState : State
     {
-        private Rigidbody2D rigidbody2;
+        private Rigidbody2D _rigidbody2D;
+        private Flipper _flipper;
+        private TargetProvider _targetProvider;
+        private float _speed;
 
-        public MoveState(Rigidbody2D rigidbody2D)
+        public MoveState(Rigidbody2D rigidbody2D, Flipper flipper, TargetProvider targetProvider, float speed)
         {
-
+            _rigidbody2D = rigidbody2D;
+            _flipper = flipper;
+            _targetProvider = targetProvider;
+            _speed = speed;
         }
 
         protected override void Work()
         {
+            Vector2 direction = (_targetProvider.Target.Position - _rigidbody2D.position).normalized;
+            _rigidbody2D.velocity = direction * _speed;
+            _flipper.CorrectFlip(_rigidbody2D.velocity.x);
         }
     }
 
-    public class CollectState : State
+    public class Attack : State
     {
-        public CollectState(Enemy bot) : base(bot)
+        private readonly Weapon _weapon;
+
+        public Attack(Weapon weapon)
         {
+            _weapon = weapon;
         }
 
-        protected override void Work() =>
-            Enemy.Collect();
-    }
-
-    public class PutState : State
-    {
-        public PutState(Enemy bot) : base(bot)
+        protected override void Work()
         {
+            if (_weapon != null)
+                _weapon.Shoot();
         }
-
-        protected override void Work() =>
-            Enemy.Put();
     }
 
     public class IdleTransition : Transition
@@ -230,47 +246,51 @@ namespace Assets.Strategy.StateMachines
 
         internal override void Update()
         {
-            if (Bot.CurrentTarget == null)
+            if (Enemy.HasTarget == false)
                 Open();
         }
     }
 
     public class MoveTransition : Transition
     {
-        public MoveTransition(State nextState, Enemy bot) : base(nextState, bot)
+        private readonly TargetProvider _targetProvider;
+
+        public MoveTransition(State nextState, Enemy enemy, TargetProvider targetProvider) : base(nextState, enemy)
         {
+            _targetProvider = targetProvider;
         }
 
         internal override void Update()
         {
-            if (Bot.IsNearestToTarget == false)
+                Vector2 position = Enemy.transform.position;
+                float targetDistance = (_targetProvider.Target.Position - position).magnitude;
+
+                if(targetDistance > Enemy.AttackRange)
+                     Open();
+        }
+    }
+
+    public class AttackTransition : Transition
+    {
+        private readonly TargetProvider _targetProvider;
+
+        public AttackTransition(State nextState, Enemy enemy, TargetProvider targetProvider) : base(nextState, bot)
+        {
+            _targetProvider = targetProvider;
+        }
+
+        internal override void Update()
+        {
+            Vector2 position = Enemy.transform.position;
+            float targetDistance = (_targetProvider.Target.Position - position).magnitude;
+
+            if (targetDistance <= Enemy.AttackRange)
                 Open();
         }
     }
 
-    public class CollectTransition : Transition
+    public class Red
     {
-        public CollectTransition(State nextState, Enemy bot) : base(nextState, bot)
-        {
-        }
 
-        internal override void Update()
-        {
-            if (Bot.IsNearestToTarget && Bot.CurrentTarget is Resource)
-                Open();
-        }
-    }
-
-    public class PutTransition : Transition
-    {
-        public PutTransition(State nextState, Enemy bot) : base(nextState, bot)
-        {
-        }
-
-        internal override void Update()
-        {
-            if (Bot.IsNearestToTarget && Bot.CurrentTarget is Base)
-                Open();
-        }
     }
 }

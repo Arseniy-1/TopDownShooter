@@ -10,7 +10,6 @@ public class Enemy : MonoBehaviour, ITarget, IDamagable
     [SerializeField] private Hand _hand;
     [SerializeField] private Rigidbody2D _rigidbody2D;
 
-    [SerializeField] private float _attackRange;
     [SerializeField] private float _lookingDistance;
 
     [SerializeField] private TargetScaner _targetScaner;
@@ -22,7 +21,10 @@ public class Enemy : MonoBehaviour, ITarget, IDamagable
     private StateMachine _stateMachine;
     private TargetProvider _targetProvider;
 
+    [field: SerializeField] public float AttackRange { get; private set; }
+    [field: SerializeField] public float Speed { get; private set; }
     public bool HasTarget => _targetProvider.Target != null && _targetProvider.Target.Position != null;
+    public bool HasWeapon => _currentWeapon != null;
     public Vector2 Position => transform.position;
 
 
@@ -55,29 +57,10 @@ public class Enemy : MonoBehaviour, ITarget, IDamagable
             Vector2 position = transform.position;
             float targetDistance = (_targetProvider.Target.Position - position).magnitude;
 
-            if (targetDistance <= _lookingDistance)
-            {
-                Follow();
-            }
-
-            if (targetDistance <= _attackRange)
+            if (targetDistance <= AttackRange)
             {
                 _hand.SpotTarget(_targetProvider.Target.Position);
-
-                if (_currentWeapon != null)
-                {
-                    Attack();
-                    _currentWeapon.Shoot();
-                }
             }
-            else
-            {
-                Follow();
-            }
-        }
-        else
-        {
-            Stay();
         }
     }
 
@@ -88,7 +71,11 @@ public class Enemy : MonoBehaviour, ITarget, IDamagable
 
     private void Attack()
     {
-        _stateMachine.StartIdle();
+        if (_currentWeapon != null)
+        {
+            Attack();
+            _currentWeapon.Shoot();
+        }
     }
 
     private void Stay()
